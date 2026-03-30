@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { id: 'epd', label: 'Управление ЭПД', icon: 'ShieldCheck' },
   { id: 'participants', label: 'Участники', icon: 'Users' },
   { id: 'history', label: 'История изменений', icon: 'History' },
+  { id: 'documents', label: 'Реестр документов', icon: 'FolderOpen' },
   { id: 'driver', label: 'Карточка водителя', icon: 'IdCard' },
   { id: 'settings', label: 'Настройки 1С/ERP', icon: 'Settings2' },
 ];

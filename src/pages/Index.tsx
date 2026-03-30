@@ -7,6 +7,7 @@ import Participants from '@/components/sections/Participants';
 import History from '@/components/sections/History';
 import Settings from '@/components/sections/Settings';
 import DriverCard from '@/components/sections/DriverCard';
+import DocumentsRegistry from '@/components/sections/DocumentsRegistry';
 import type { Role } from '@/data/mockData';
 
 export default function Index() {
@@ -25,6 +26,8 @@ export default function Index() {
         return <Participants role={activeRole} />;
       case 'history':
         return <History role={activeRole} />;
+      case 'documents':
+        return <DocumentsRegistry role={activeRole} />;
       case 'driver':
         return <DriverCard />;
       case 'settings':
