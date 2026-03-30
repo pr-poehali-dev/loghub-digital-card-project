@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import Icon from '@/components/ui/icon';
+import Connect1CModal from '@/components/Connect1CModal';
 
 export default function Settings() {
   const [tab, setTab] = useState<'erp' | 'epd' | 'notifications'>('erp');
   const [connected, setConnected] = useState(false);
+  const [show1CModal, setShow1CModal] = useState(false);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -52,14 +54,14 @@ export default function Settings() {
                 </div>
               </div>
               <button
-                onClick={() => setConnected(!connected)}
+                onClick={() => connected ? setConnected(false) : setShow1CModal(true)}
                 className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                   connected
                     ? 'glass text-muted-foreground hover:text-rose-400'
                     : 'bg-electric text-background hover:opacity-90'
                 }`}
               >
-                {connected ? 'Отключить' : 'Подключить'}
+                {connected ? 'Отключить' : 'Подключить 1С'}
               </button>
             </div>
           </div>
@@ -233,6 +235,17 @@ export default function Settings() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 1C Modal */}
+      {show1CModal && (
+        <Connect1CModal
+          onClose={() => setShow1CModal(false)}
+          onConnected={() => {
+            setConnected(true);
+            setShow1CModal(false);
+          }}
+        />
       )}
     </div>
   );

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { ROLES, EPD_DOCUMENTS, type Role, type EpdDocument } from '@/data/mockData';
+import SignModal from '@/components/SignModal';
+import GisEpdModal from '@/components/GisEpdModal';
 
 interface EpdManagementProps {
   role: Role;
@@ -44,10 +46,26 @@ function SignatureChain({ doc }: { doc: EpdDocument }) {
   );
 }
 
-function DocRow({ doc, role }: { doc: EpdDocument; role: Role }) {
-  const sc = docStatusConfig[doc.status];
+function DocRow({
+  doc,
+  role,
+  onSignClick,
+  signedDocs,
+}: {
+  doc: EpdDocument;
+  role: Role;
+  onSignClick: (doc: EpdDocument) => void;
+  signedDocs: string[];
+}) {
+  const isSigned = signedDocs.includes(doc.id);
+  const effectiveStatus = isSigned ? 'signed' : doc.status;
+  const sc = docStatusConfig[effectiveStatus];
   const typeInfo = typeLabel[doc.type];
-  const canSign = doc.status === 'pending' && doc.requiredSignatures.includes(role) && !doc.signedBy.includes(role);
+  const canSign =
+    doc.status === 'pending' &&
+    doc.requiredSignatures.includes(role) &&
+    !doc.signedBy.includes(role) &&
+    !isSigned;
 
   return (
     <div className={`flex items-center gap-4 p-4 rounded-xl border transition-all hover:border-border ${
@@ -86,10 +104,19 @@ function DocRow({ doc, role }: { doc: EpdDocument; role: Role }) {
 
       <div className="flex items-center gap-2 flex-shrink-0">
         {canSign && (
-          <button className="flex items-center gap-1.5 px-3 py-1.5 bg-electric text-background rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity">
+          <button
+            onClick={() => onSignClick(doc)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-electric text-background rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity"
+          >
             <Icon name="PenLine" size={12} />
             Подписать
           </button>
+        )}
+        {isSigned && (
+          <span className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-400/10 text-emerald-400 border border-emerald-400/30 rounded-lg text-xs font-medium">
+            <Icon name="Check" size={11} />
+            Подписано
+          </span>
         )}
         <button className="w-8 h-8 rounded-lg glass flex items-center justify-center hover:border-border transition-all">
           <Icon name="Download" size={13} className="text-muted-foreground" />
@@ -101,12 +128,24 @@ function DocRow({ doc, role }: { doc: EpdDocument; role: Role }) {
 
 export default function EpdManagement({ role }: EpdManagementProps) {
   const [filter, setFilter] = useState<string>('all');
+  const [signDoc, setSignDoc] = useState<EpdDocument | null>(null);
+  const [showGisModal, setShowGisModal] = useState(false);
+  const [signedDocs, setSignedDocs] = useState<string[]>([]);
+  const [gisSent, setGisSent] = useState(false);
 
   const myPendingDocs = EPD_DOCUMENTS.filter(
-    d => d.status === 'pending' && d.requiredSignatures.includes(role) && !d.signedBy.includes(role)
+    d => d.status === 'pending' && d.requiredSignatures.includes(role) && !d.signedBy.includes(role) && !signedDocs.includes(d.id)
   );
 
   const filteredDocs = EPD_DOCUMENTS.filter(d => filter === 'all' || d.status === filter);
+
+  const handleSigned = (docId: string) => {
+    setSignedDocs(prev => [...prev, docId]);
+  };
+
+  const handleGisSent = () => {
+    setGisSent(true);
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -133,7 +172,10 @@ export default function EpdManagement({ role }: EpdManagementProps) {
               {myPendingDocs.map(d => d.title).join(', ')} — ожидают вашей электронной подписи
             </div>
           </div>
-          <button className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-electric text-background rounded-lg text-xs font-semibold hover:opacity-90">
+          <button
+            onClick={() => setSignDoc(myPendingDocs[0])}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-electric text-background rounded-lg text-xs font-semibold hover:opacity-90"
+          >
             Подписать все
           </button>
         </div>
@@ -146,17 +188,24 @@ export default function EpdManagement({ role }: EpdManagementProps) {
             <Icon name="Globe" size={15} className="text-electric" />
             Статус передачи в ГИС ЭПД
           </h3>
-          <span className="status-pill bg-amber-400/15 text-amber-400 border border-amber-400/30 text-xs">
-            <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-            Ожидает подписей
-          </span>
+          {gisSent ? (
+            <span className="status-pill bg-emerald-400/15 text-emerald-400 border border-emerald-400/30 text-xs">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              Зарегистрирован
+            </span>
+          ) : (
+            <span className="status-pill bg-amber-400/15 text-amber-400 border border-amber-400/30 text-xs">
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+              Ожидает подписей
+            </span>
+          )}
         </div>
         <div className="grid grid-cols-4 gap-3">
           {[
             { label: 'Создан', done: true, icon: 'CheckCircle2' },
-            { label: 'Сбор подписей', done: false, icon: 'PenLine', active: true },
-            { label: 'Передача в ГИС', done: false, icon: 'Send' },
-            { label: 'Подтверждение', done: false, icon: 'ShieldCheck' },
+            { label: 'Сбор подписей', done: signedDocs.length > 0, icon: 'PenLine', active: !gisSent && signedDocs.length === 0 },
+            { label: 'Передача в ГИС', done: gisSent, icon: 'Send', active: !gisSent && signedDocs.length > 0 },
+            { label: 'Подтверждение', done: gisSent, icon: 'ShieldCheck' },
           ].map((step, i) => (
             <div key={i} className={`flex flex-col items-center gap-2 p-3 rounded-lg ${
               step.done ? 'bg-emerald-400/8 border border-emerald-400/20' :
@@ -176,8 +225,27 @@ export default function EpdManagement({ role }: EpdManagementProps) {
           ))}
         </div>
         <div className="mt-3 h-1 bg-secondary rounded-full overflow-hidden">
-          <div className="h-full w-1/4 bg-gradient-to-r from-emerald-400 to-amber-400 rounded-full" />
+          <div className={`h-full bg-gradient-to-r from-emerald-400 to-amber-400 rounded-full transition-all duration-700 ${
+            gisSent ? 'w-full' : signedDocs.length > 0 ? 'w-2/4' : 'w-1/4'
+          }`} />
         </div>
+        {!gisSent && (
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => setShowGisModal(true)}
+              className="flex items-center gap-1.5 px-4 py-2 bg-violet-500 text-white rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity"
+            >
+              <Icon name="Send" size={13} />
+              В ГИС ЭПД
+            </button>
+          </div>
+        )}
+        {gisSent && (
+          <div className="mt-3 flex items-center gap-2 text-xs text-emerald-400">
+            <Icon name="CheckCircle2" size={13} />
+            <span>УИД: <span className="font-mono">ЭПД-2026-54871-МСК</span></span>
+          </div>
+        )}
       </div>
 
       {/* Filter */}
@@ -193,22 +261,43 @@ export default function EpdManagement({ role }: EpdManagementProps) {
             onClick={() => setFilter(f.id)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               filter === f.id
-                ? 'bg-electric/15 text-electric border border-electric/30'
-                : 'text-muted-foreground hover:text-foreground glass'
+                ? 'bg-electric text-background'
+                : 'glass text-muted-foreground hover:text-foreground'
             }`}
           >
             {f.label}
           </button>
         ))}
-        <span className="ml-auto text-xs text-muted-foreground font-mono">{filteredDocs.length} документов</span>
       </div>
 
-      {/* Docs list */}
+      {/* Documents list */}
       <div className="space-y-2">
         {filteredDocs.map(doc => (
-          <DocRow key={doc.id} doc={doc} role={role} />
+          <DocRow
+            key={doc.id}
+            doc={doc}
+            role={role}
+            onSignClick={setSignDoc}
+            signedDocs={signedDocs}
+          />
         ))}
       </div>
+
+      {/* Modals */}
+      {signDoc && (
+        <SignModal
+          doc={signDoc}
+          onClose={() => setSignDoc(null)}
+          onSigned={handleSigned}
+        />
+      )}
+      {showGisModal && (
+        <GisEpdModal
+          shipmentId="ЛХ-2026-0347"
+          onClose={() => setShowGisModal(false)}
+          onSent={handleGisSent}
+        />
+      )}
     </div>
   );
 }
