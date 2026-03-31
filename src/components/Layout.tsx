@@ -141,14 +141,14 @@ export default function Layout({ children, activeSection, onSectionChange, activ
 
         {/* Bottom */}
         <div className="p-3 border-t border-border/30">
-          <div className={`flex items-center gap-2.5 px-2 py-2 rounded-lg glass-card ${!sidebarOpen ? 'justify-center' : ''}`}>
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${currentRole.bgColor}`}>
-              <Icon name={currentRole.icon} fallback="Circle" size={14} className={currentRole.color} />
+          <div className={`flex items-center gap-2.5 px-2 py-2.5 rounded-lg border border-border bg-background ${!sidebarOpen ? 'justify-center' : ''}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold ${currentRole.bgColor} ${currentRole.color}`}>
+              ИИ
             </div>
             {sidebarOpen && (
-              <div className="min-w-0">
-                <div className="text-xs font-medium text-foreground truncate">Иванов И.И.</div>
-                <div className={`text-xs ${currentRole.color} font-mono`}>{currentRole.shortLabel}</div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-semibold text-foreground truncate">Иванов Иван И.</div>
+                <div className={`text-xs font-medium truncate ${currentRole.color}`}>{currentRole.label}</div>
               </div>
             )}
           </div>

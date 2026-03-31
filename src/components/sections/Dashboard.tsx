@@ -58,10 +58,9 @@ export default function Dashboard({ role, onSectionChange }: DashboardProps) {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Hero */}
-      <div className="relative rounded-2xl overflow-hidden border border-border/50 p-6"
-        style={{ background: 'linear-gradient(135deg, hsl(220,20%,8%) 0%, hsl(220,18%,10%) 100%)' }}>
-        <div className="absolute inset-0 opacity-30"
-          style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, hsla(197,100%,50%,0.15) 0%, transparent 50%), radial-gradient(circle at 80% 20%, hsla(38,100%,55%,0.1) 0%, transparent 40%)' }} />
+      <div className="relative rounded-2xl overflow-hidden border border-border p-6 bg-card">
+        <div className="absolute inset-0 opacity-20"
+          style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, hsla(197,90%,38%,0.12) 0%, transparent 50%), radial-gradient(circle at 80% 20%, hsla(38,100%,50%,0.08) 0%, transparent 40%)' }} />
 
         <div className="relative flex items-start justify-between gap-6">
           <div>
