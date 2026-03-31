@@ -3,6 +3,8 @@ import Icon from '@/components/ui/icon';
 import { DOCUMENT_KINDS, type DocumentKind, type DocumentKindConfig, type Role } from '@/data/mockData';
 import DocumentForm from './DocumentForm';
 
+type SendStep = 'select' | 'confirm' | 'sending' | 'done';
+
 interface DocRecord {
   id: string;
   kindId: DocumentKind;
@@ -65,6 +67,35 @@ export default function DocumentsRegistry({ role }: DocumentsRegistryProps) {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterKind, setFilterKind] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [sendStep, setSendStep] = useState<SendStep>('select');
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+
+  const signedDocs = docs.filter(d => d.status === 'signed');
+
+  const openSendModal = () => {
+    setSelectedDocIds(signedDocs.map(d => d.id));
+    setSendStep('select');
+    setSendModalOpen(true);
+  };
+
+  const toggleDoc = (id: string) => {
+    setSelectedDocIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleSendToGis = () => {
+    setSendStep('sending');
+    setTimeout(() => {
+      setDocs(prev => prev.map(d => selectedDocIds.includes(d.id) ? { ...d, status: 'sent' as const } : d));
+      setSendStep('done');
+    }, 2200);
+  };
+
+  const closeSendModal = () => {
+    setSendModalOpen(false);
+    setSendStep('select');
+    setSelectedDocIds([]);
+  };
 
   const handleSave = (kind: DocumentKindConfig, values: Record<string, string>, status: 'draft' | 'pending') => {
     const newDoc: DocRecord = {
@@ -152,13 +183,28 @@ export default function DocumentsRegistry({ role }: DocumentsRegistryProps) {
           <h2 className="text-lg font-bold text-foreground">Реестр документов</h2>
           <p className="text-xs text-muted-foreground mt-0.5">Все ЭПД-документы по перевозке ЛХ-2026-0347</p>
         </div>
-        <button
-          onClick={() => setView('create-select')}
-          className="flex items-center gap-2 px-4 py-2.5 bg-electric text-background rounded-xl text-sm font-bold hover:opacity-90 active:scale-[0.98] transition-all glow-electric"
-        >
-          <Icon name="Plus" size={15} />
-          Создать документ
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openSendModal}
+            disabled={signedDocs.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 border border-electric text-electric rounded-xl text-sm font-bold hover:bg-electric/10 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Icon name="Send" size={15} />
+            В ГИС ЭПД
+            {signedDocs.length > 0 && (
+              <span className="w-5 h-5 rounded-full bg-electric text-background text-[10px] flex items-center justify-center font-bold">
+                {signedDocs.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setView('create-select')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-electric text-background rounded-xl text-sm font-bold hover:opacity-90 active:scale-[0.98] transition-all glow-electric"
+          >
+            <Icon name="Plus" size={15} />
+            Создать документ
+          </button>
+        </div>
       </div>
 
       {/* Stats row */}
@@ -277,6 +323,166 @@ export default function DocumentsRegistry({ role }: DocumentsRegistryProps) {
           ))}
         </div>
       </div>
+
+      {/* GIS EPD Send Modal */}
+      {sendModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={sendStep !== 'sending' ? closeSendModal : undefined} />
+          <div className="relative bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg animate-fade-in">
+
+            {/* Step: select */}
+            {sendStep === 'select' && (
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between mb-1">
+                  <div>
+                    <div className="font-bold text-foreground text-base">Отправка в ГИС ЭПД</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Выберите документы для отправки</div>
+                  </div>
+                  <button onClick={closeSendModal} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all">
+                    <Icon name="X" size={15} />
+                  </button>
+                </div>
+
+                <div className="rounded-xl border border-border overflow-hidden">
+                  {signedDocs.length === 0 ? (
+                    <div className="py-8 text-center text-sm text-muted-foreground">Нет подписанных документов</div>
+                  ) : (
+                    signedDocs.map((doc, i) => {
+                      const kind = DOCUMENT_KINDS.find(k => k.id === doc.kindId)!;
+                      const checked = selectedDocIds.includes(doc.id);
+                      return (
+                        <div
+                          key={doc.id}
+                          onClick={() => toggleDoc(doc.id)}
+                          className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${i > 0 ? 'border-t border-border' : ''} ${checked ? 'bg-electric/5' : 'hover:bg-secondary/40'}`}
+                        >
+                          <div className={`w-5 h-5 rounded flex items-center justify-center border-2 flex-shrink-0 transition-all ${checked ? 'bg-electric border-electric' : 'border-border'}`}>
+                            {checked && <Icon name="Check" size={11} className="text-background" />}
+                          </div>
+                          <div className={`w-8 h-8 rounded-lg ${kind.bgColor} border ${kind.borderColor} flex items-center justify-center flex-shrink-0`}>
+                            <Icon name={kind.icon} fallback="File" size={14} className={kind.color} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-foreground truncate">{doc.title}</div>
+                            <div className="text-xs text-muted-foreground font-mono">{doc.number}</div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-400/10 border border-amber-400/30">
+                  <Icon name="AlertCircle" size={14} className="text-amber-400 flex-shrink-0" />
+                  <p className="text-xs text-amber-400">Отправляются только подписанные документы. После отправки статус изменится на «Отправлен в ГИС».</p>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button onClick={closeSendModal} className="flex-1 px-4 py-2.5 border border-border rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:border-border transition-all">
+                    Отмена
+                  </button>
+                  <button
+                    onClick={() => setSendStep('confirm')}
+                    disabled={selectedDocIds.length === 0}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-electric text-background rounded-xl text-sm font-bold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                  >
+                    Далее
+                    <Icon name="ArrowRight" size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step: confirm */}
+            {sendStep === 'confirm' && (
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between mb-1">
+                  <div>
+                    <div className="font-bold text-foreground text-base">Подтверждение отправки</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Проверьте состав комплекта</div>
+                  </div>
+                  <button onClick={closeSendModal} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all">
+                    <Icon name="X" size={15} />
+                  </button>
+                </div>
+
+                <div className="rounded-xl border border-border divide-y divide-border overflow-hidden">
+                  {docs.filter(d => selectedDocIds.includes(d.id)).map(doc => {
+                    const kind = DOCUMENT_KINDS.find(k => k.id === doc.kindId)!;
+                    return (
+                      <div key={doc.id} className="flex items-center gap-3 px-4 py-3">
+                        <div className={`w-7 h-7 rounded-lg ${kind.bgColor} border ${kind.borderColor} flex items-center justify-center flex-shrink-0`}>
+                          <Icon name={kind.icon} fallback="File" size={13} className={kind.color} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-foreground truncate">{doc.title}</div>
+                          <div className="text-xs text-muted-foreground font-mono">{doc.number}</div>
+                        </div>
+                        <Icon name="ShieldCheck" size={13} className="text-emerald-400 flex-shrink-0" />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
+                  <span>Получатель: <span className="font-medium text-foreground">ГИС ЭПД (Минтранс РФ)</span></span>
+                  <span>Документов: <span className="font-bold text-foreground">{selectedDocIds.length}</span></span>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setSendStep('select')} className="flex-1 px-4 py-2.5 border border-border rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground transition-all">
+                    Назад
+                  </button>
+                  <button
+                    onClick={handleSendToGis}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-electric text-background rounded-xl text-sm font-bold hover:opacity-90 transition-all glow-electric"
+                  >
+                    <Icon name="Send" size={14} />
+                    Отправить в ГИС ЭПД
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step: sending */}
+            {sendStep === 'sending' && (
+              <div className="p-10 flex flex-col items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-electric/15 border border-electric/30 flex items-center justify-center">
+                  <Icon name="Loader" size={24} className="text-electric animate-spin" />
+                </div>
+                <div className="text-center">
+                  <div className="font-bold text-foreground">Отправка в ГИС ЭПД...</div>
+                  <div className="text-xs text-muted-foreground mt-1">Подождите, идёт передача комплекта документов</div>
+                </div>
+              </div>
+            )}
+
+            {/* Step: done */}
+            {sendStep === 'done' && (
+              <div className="p-10 flex flex-col items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center">
+                  <Icon name="CheckCircle2" size={28} className="text-emerald-400" />
+                </div>
+                <div className="text-center">
+                  <div className="font-bold text-foreground">Документы отправлены!</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {selectedDocIds.length} {selectedDocIds.length === 1 ? 'документ передан' : 'документа передано'} в ГИС ЭПД
+                  </div>
+                </div>
+                <div className="w-full px-4 py-3 rounded-xl bg-emerald-400/10 border border-emerald-400/30 text-center">
+                  <div className="text-xs font-mono text-emerald-400 font-medium">Номер транзакции: TXN-{Date.now().toString().slice(-8)}</div>
+                </div>
+                <button
+                  onClick={closeSendModal}
+                  className="w-full px-4 py-2.5 bg-electric text-background rounded-xl text-sm font-bold hover:opacity-90 transition-all"
+                >
+                  Закрыть
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
