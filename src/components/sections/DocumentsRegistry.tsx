@@ -5,6 +5,25 @@ import DocumentForm from './DocumentForm';
 
 type SendStep = 'select' | 'confirm' | 'sending' | 'done';
 
+interface SendRecord {
+  txnId: string;
+  sentAt: string;
+  sentBy: string;
+  docs: { title: string; number: string; kindId: DocumentKind }[];
+}
+
+const INITIAL_HISTORY: SendRecord[] = [
+  {
+    txnId: 'TXN-20260322',
+    sentAt: '22.03.2026 18:05',
+    sentBy: 'Морозов А.И.',
+    docs: [
+      { title: 'Поручение экспедитору', number: 'ПЭ-2026-0089', kindId: 'forwarder-order' },
+      { title: 'Заявка на перевозку', number: 'ЭЗЗ-2026-0031', kindId: 'ezz' },
+    ],
+  },
+];
+
 interface DocRecord {
   id: string;
   kindId: DocumentKind;
@@ -70,6 +89,9 @@ export default function DocumentsRegistry({ role }: DocumentsRegistryProps) {
   const [sendModalOpen, setSendModalOpen] = useState(false);
   const [sendStep, setSendStep] = useState<SendStep>('select');
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+  const [lastTxnId, setLastTxnId] = useState('');
+  const [sendHistory, setSendHistory] = useState<SendRecord[]>(INITIAL_HISTORY);
+  const [tab, setTab] = useState<'registry' | 'history'>('registry');
 
   const signedDocs = docs.filter(d => d.status === 'signed');
 
@@ -85,8 +107,18 @@ export default function DocumentsRegistry({ role }: DocumentsRegistryProps) {
 
   const handleSendToGis = () => {
     setSendStep('sending');
+    const txnId = `TXN-${Date.now().toString().slice(-8)}`;
+    setLastTxnId(txnId);
     setTimeout(() => {
+      const sentDocs = docs.filter(d => selectedDocIds.includes(d.id));
       setDocs(prev => prev.map(d => selectedDocIds.includes(d.id) ? { ...d, status: 'sent' as const } : d));
+      const record: SendRecord = {
+        txnId,
+        sentAt: new Date().toLocaleString('ru', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        sentBy: 'Иванов И.И.',
+        docs: sentDocs.map(d => ({ title: d.title, number: d.number, kindId: d.kindId })),
+      };
+      setSendHistory(prev => [record, ...prev]);
       setSendStep('done');
     }, 2200);
   };
@@ -207,6 +239,88 @@ export default function DocumentsRegistry({ role }: DocumentsRegistryProps) {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 p-1 bg-secondary/50 border border-border/40 rounded-xl w-fit">
+        <button
+          onClick={() => setTab('registry')}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${tab === 'registry' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+        >
+          <Icon name="FolderOpen" size={14} />
+          Документы
+        </button>
+        <button
+          onClick={() => setTab('history')}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${tab === 'history' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+        >
+          <Icon name="ClockArrowUp" size={14} fallback="History" />
+          История отправок
+          {sendHistory.length > 0 && (
+            <span className="w-4 h-4 rounded-full bg-electric/20 text-electric text-[10px] flex items-center justify-center font-bold">{sendHistory.length}</span>
+          )}
+        </button>
+      </div>
+
+      {/* History tab */}
+      {tab === 'history' && (
+        <div className="space-y-3 animate-fade-in">
+          {sendHistory.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <Icon name="History" size={40} className="mx-auto mb-3 opacity-30" />
+              <div className="text-sm">Отправок ещё не было</div>
+            </div>
+          ) : (
+            sendHistory.map((rec, i) => (
+              <div key={rec.txnId} className="rounded-2xl border border-border bg-card overflow-hidden">
+                {/* Record header */}
+                <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/50 bg-secondary/30">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-electric/15 border border-electric/30 flex items-center justify-center flex-shrink-0">
+                      <Icon name="Send" size={14} className="text-electric" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-foreground">Отправка #{sendHistory.length - i}</div>
+                      <div className="text-xs text-muted-foreground">{rec.sentAt} · {rec.sentBy}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] text-muted-foreground font-mono uppercase">Транзакция</div>
+                    <div className="text-xs font-bold font-mono text-electric">{rec.txnId}</div>
+                  </div>
+                </div>
+                {/* Docs list */}
+                <div className="divide-y divide-border/40">
+                  {rec.docs.map((d, j) => {
+                    const kind = DOCUMENT_KINDS.find(k => k.id === d.kindId)!;
+                    return (
+                      <div key={j} className="flex items-center gap-3 px-5 py-2.5">
+                        <div className={`w-7 h-7 rounded-lg ${kind.bgColor} border ${kind.borderColor} flex items-center justify-center flex-shrink-0`}>
+                          <Icon name={kind.icon} fallback="File" size={12} className={kind.color} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm text-foreground">{d.title}</span>
+                        </div>
+                        <span className="text-xs font-mono text-muted-foreground">{d.number}</span>
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-400/10 border border-emerald-400/20">
+                          <Icon name="CheckCircle2" size={10} className="text-emerald-400" />
+                          <span className="text-[10px] text-emerald-400 font-medium">Доставлен</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Footer */}
+                <div className="px-5 py-2.5 bg-secondary/20 border-t border-border/40 flex items-center justify-between">
+                  <span className="text-[11px] text-muted-foreground">Получатель: <span className="font-medium text-foreground">ГИС ЭПД (Минтранс РФ)</span></span>
+                  <span className="text-[11px] text-muted-foreground">Документов: <span className="font-bold text-foreground">{rec.docs.length}</span></span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {tab === 'registry' && <>
+
       {/* Stats row */}
       <div className="grid grid-cols-4 gap-3">
         {[
@@ -323,6 +437,8 @@ export default function DocumentsRegistry({ role }: DocumentsRegistryProps) {
           ))}
         </div>
       </div>
+
+      </> }
 
       {/* GIS EPD Send Modal */}
       {sendModalOpen && (
@@ -470,14 +586,23 @@ export default function DocumentsRegistry({ role }: DocumentsRegistryProps) {
                   </div>
                 </div>
                 <div className="w-full px-4 py-3 rounded-xl bg-emerald-400/10 border border-emerald-400/30 text-center">
-                  <div className="text-xs font-mono text-emerald-400 font-medium">Номер транзакции: TXN-{Date.now().toString().slice(-8)}</div>
+                  <div className="text-xs font-mono text-emerald-400 font-medium">Номер транзакции: {lastTxnId}</div>
                 </div>
-                <button
-                  onClick={closeSendModal}
-                  className="w-full px-4 py-2.5 bg-electric text-background rounded-xl text-sm font-bold hover:opacity-90 transition-all"
-                >
-                  Закрыть
-                </button>
+                <div className="flex gap-2 w-full">
+                  <button
+                    onClick={closeSendModal}
+                    className="flex-1 px-4 py-2.5 border border-border rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground transition-all"
+                  >
+                    Закрыть
+                  </button>
+                  <button
+                    onClick={() => { closeSendModal(); setTab('history'); }}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-electric text-background rounded-xl text-sm font-bold hover:opacity-90 transition-all"
+                  >
+                    <Icon name="History" size={14} />
+                    История отправок
+                  </button>
+                </div>
               </div>
             )}
           </div>
