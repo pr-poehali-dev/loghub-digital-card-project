@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { ROLES, type Role } from '@/data/mockData';
 
@@ -12,25 +12,36 @@ interface LayoutProps {
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Главная', icon: 'LayoutDashboard' },
-  { id: 'card', label: 'Карточка перевозки', icon: 'FileText' },
-  { id: 'epd', label: 'Управление ЭПД', icon: 'ShieldCheck' },
-  { id: 'participants', label: 'Участники', icon: 'Users' },
-  { id: 'history', label: 'История изменений', icon: 'History' },
   { id: 'documents', label: 'Реестр документов', icon: 'FolderOpen' },
+  { id: 'epd', label: 'Управление ЭПД', icon: 'ShieldCheck' },
+  { id: 'card', label: 'Карточка перевозки', icon: 'FileText' },
+  { id: 'participants', label: 'Участники', icon: 'Users' },
   { id: 'driver', label: 'Карточка водителя', icon: 'IdCard' },
+  { id: 'history', label: 'История изменений', icon: 'History' },
   { id: 'settings', label: 'Настройки 1С/ERP', icon: 'Settings2' },
 ];
 
 export default function Layout({ children, activeSection, onSectionChange, activeRole, onRoleChange }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const currentRole = ROLES.find(r => r.id === activeRole)!;
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setRoleDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
       <aside
-        className={`flex flex-col flex-shrink-0 transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-16'} border-r border-border/50 bg-sidebar`}
-        style={{ background: 'linear-gradient(180deg, hsl(220,20%,5%) 0%, hsl(220,20%,6%) 100%)' }}
+        className={`flex flex-col flex-shrink-0 transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-16'} border-r border-border bg-sidebar`}
       >
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 py-5 border-b border-border/30">
@@ -52,44 +63,58 @@ export default function Layout({ children, activeSection, onSectionChange, activ
         </div>
 
         {/* Role switcher */}
-        <div className="p-3 border-b border-border/30">
+        <div className="p-3 border-b border-border/30" ref={dropdownRef}>
           {sidebarOpen ? (
-            <div className="space-y-1">
-              <div className="text-xs text-muted-foreground px-2 mb-2 font-mono uppercase tracking-wider">Моя роль</div>
-              {ROLES.map(role => (
+            <div>
+              <div className="text-xs text-muted-foreground px-2 mb-1.5 font-mono uppercase tracking-wider">Моя роль</div>
+              <div className="relative">
                 <button
-                  key={role.id}
-                  onClick={() => onRoleChange(role.id)}
-                  className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
-                    activeRole === role.id
-                      ? `${role.bgColor} ${role.color} ${role.borderColor} border`
-                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-                  }`}
+                  onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
+                  className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium border transition-all duration-200 ${currentRole.bgColor} ${currentRole.color} ${currentRole.borderColor}`}
                 >
-                  <Icon name={role.icon} fallback="Circle" size={14} />
-                  {role.label}
-                  {activeRole === role.id && (
-                    <Icon name="Check" size={12} className="ml-auto" />
-                  )}
+                  <Icon name={currentRole.icon} fallback="Circle" size={14} />
+                  {currentRole.label}
+                  <Icon name={roleDropdownOpen ? 'ChevronUp' : 'ChevronDown'} size={12} className="ml-auto" />
                 </button>
-              ))}
+                {roleDropdownOpen && (
+                  <div className="absolute left-0 right-0 mt-1 z-50 rounded-lg border border-border bg-card shadow-lg overflow-hidden">
+                    {ROLES.filter(r => r.id !== activeRole).map(role => (
+                      <button
+                        key={role.id}
+                        onClick={() => { onRoleChange(role.id); setRoleDropdownOpen(false); }}
+                        className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-150"
+                      >
+                        <Icon name={role.icon} fallback="Circle" size={14} />
+                        {role.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-1">
-              {ROLES.map(role => (
-                <button
-                  key={role.id}
-                  onClick={() => onRoleChange(role.id)}
-                  title={role.label}
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${
-                    activeRole === role.id
-                      ? `${role.bgColor} ${role.color}`
-                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-                  }`}
-                >
-                  <Icon name={role.icon} fallback="Circle" size={14} />
-                </button>
-              ))}
+              <button
+                onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
+                title={currentRole.label}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${currentRole.bgColor} ${currentRole.color}`}
+              >
+                <Icon name={currentRole.icon} fallback="Circle" size={14} />
+              </button>
+              {roleDropdownOpen && (
+                <div className="absolute left-16 mt-0 z-50 rounded-lg border border-border bg-card shadow-lg overflow-hidden min-w-36">
+                  {ROLES.filter(r => r.id !== activeRole).map(role => (
+                    <button
+                      key={role.id}
+                      onClick={() => { onRoleChange(role.id); setRoleDropdownOpen(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-150"
+                    >
+                      <Icon name={role.icon} fallback="Circle" size={14} />
+                      {role.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
